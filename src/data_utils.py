@@ -50,3 +50,60 @@ class WhiteBalanceImageDataset(Dataset):
             return image, torch.tensor(target, dtype=torch.float32)
         else:
             return image
+
+# src/data_utils.py (continued)
+
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+
+def preprocess_metadata(df, is_train=True, scaler=None, label_encoders=None):
+    """
+    Cleans and encodes metadata DataFrame.
+    If is_train=True, fits encoders/scaler and returns them.
+    If is_train=False, uses provided scaler/encoders.
+    """
+    # Copy to avoid modifying original
+    df = df.copy()
+    # Example: drop columns not needed (e.g., id_global after extraction)
+    df = df.drop(columns=['id_global'], errors='ignore')
+    # Separate target if present
+    if is_train:
+        y = df[['Temperature','Tint']].values
+        df = df.drop(columns=['Temperature','Tint'], errors='ignore')
+    else:
+        y = None
+    
+    # Identify numeric vs categorical columns
+    num_cols = df.select_dtypes(include=['int64','float64']).columns.tolist()
+    cat_cols = df.select_dtypes(include=['object','category']).columns.tolist()
+    
+    # Fill missing values
+    for col in num_cols:
+        df[col].fillna(df[col].median(), inplace=True)
+    for col in cat_cols:
+        df[col].fillna('Unknown', inplace=True)
+    
+    # Encode categorical: use label encoding for simplicity
+    if label_encoders is None:
+        label_encoders = {}
+    for col in cat_cols:
+        if is_train:
+            le = LabelEncoder()
+            df[col] = le.fit_transform(df[col])
+            label_encoders[col] = le
+        else:
+            # Use existing encoder, handling unseen values if any
+            le = label_encoders.get(col)
+            if le:
+                df[col] = le.transform(df[col])
+            else:
+                df[col] = 0
+    
+    # Scale numeric features
+    if scaler is None:
+        scaler = StandardScaler()
+        df[num_cols] = scaler.fit_transform(df[num_cols])
+    else:
+        df[num_cols] = scaler.transform(df[num_cols])
+    
+    X = df.values  # final feature matrix
+    return X, y, scaler, label_encoders
