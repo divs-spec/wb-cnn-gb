@@ -32,5 +32,3 @@ The code is organized into modular scripts:
 **- predict.py** – loads trained models, makes predictions on validation set, combines them, and writes the submission CSV.
 
 **- requirements.txt** – pip-installable dependencies.
-
-Below we outline the pipeline, with code snippets for each component.
